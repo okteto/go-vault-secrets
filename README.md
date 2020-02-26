@@ -30,7 +30,7 @@ injector:
   enabled: false
 
 server:
-  standalone:
+  dev:
     enabled: true
   authDelegator:
     enabled: false
@@ -48,6 +48,8 @@ Install the Vault Helm chart
 $ helm install vault vault-helm -f config.yaml
 ```
 
+> For the purpose of this guide, we are installing Vault in `dev` mode. This is not recommended for production scenarios.
+
 ## Configure Vault and Store the Secret
 
 Run the vault client
@@ -56,13 +58,13 @@ Run the vault client
 $ kubectl exec -ti vault-0 /bin/sh
 ```
 
-1. Login with the root token
+Login with the root token
 
 ```console
 $ vault login <root token>
 ```
 
-1. Create the policy
+Create the policy
 
 ```console
 cat <<EOF > /home/vault/app-policy.hcl
@@ -74,19 +76,13 @@ EOF
 $ vault policy write app /home/vault/app-policy.hcl
 ```
 
-1. Enable the K/V store
-
-```console
-$ vault secrets enable -path=secret kv-v2
-```
-
-1. Create the token
+Create the token
 
 ```console
 $ vault token create -policy=app
 ```
 
-1. Create the secret
+Create the secret
 
 ```console
 $ vault kv put secret/helloworld username=foobaruser password=foobarbazpass
