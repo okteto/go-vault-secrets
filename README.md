@@ -58,12 +58,6 @@ Run the vault client
 $ kubectl exec -ti vault-0 /bin/sh
 ```
 
-Login with the root token
-
-```console
-$ vault login <root token>
-```
-
 Create the policy
 
 ```console
@@ -72,14 +66,32 @@ path "secret*" {
   capabilities = ["read"]
 }
 EOF
+```
 
+```console
 $ vault policy write app /home/vault/app-policy.hcl
 ```
 
-Create the token
+```
+Success! Uploaded policy: app
+```
+
+Create the user token (we'll use this later, so keep it somewhere safe)
 
 ```console
 $ vault token create -policy=app
+```
+
+```console
+Key                  Value
+---                  -----
+token                s.XXXXXX
+token_accessor       XXXXXXXX
+token_duration       768h
+token_renewable      true
+token_policies       ["app" "default"]
+identity_policies    []
+policies             ["app" "default"]
 ```
 
 Create the secret
@@ -88,12 +100,41 @@ Create the secret
 $ vault kv put secret/helloworld username=foobaruser password=foobarbazpass
 ```
 
-## Deploy the application
 ```console
-$ kubectl apply -f k8s.yaml
+Key              Value
+---              -----
+created_time     2020-02-26T22:29:56.106059196Z
+deletion_time    n/a
+destroyed        false
+version          1
 ```
 
-The default application uses hard-coded credentials instead of getting them from Vault. Get the URL from the Okteto Cloud UI, and call the application from your local terminal:
+Exit the vault pod
+
+```
+$ exit
+```
+
+## Deploy the application
+
+```console
+$ kubectl apply -f k8s.yml
+```
+
+The default application uses hard-coded credentials instead of getting them from Vault. 
+
+You can get the URL from the command line by running the command below, or from the Okteto Cloud UI:
+
+```console
+$ kubectl get ing okteto-hello-world
+```
+
+```console
+NAME                 HOSTS                                    ADDRESS                     PORTS     AGE
+okteto-hello-world   hello-world-cindy.cloud.okteto.net   34.223.83.14,52.26.95.105   80, 443   34s
+```
+
+Call the application to verify that everything works as expected:
 
 ```console
 $ curl https://hello-world-cindy.cloud.okteto.net
@@ -108,16 +149,20 @@ Super secret password is: hard-coded-password
 ## Prepare your Application to use Vault
 In order to call the vault API, you'll need to pass a token to your service.  
 
-We'll use the one we created in the previous step, and pass it via an environment variable.
+We'll use the one we created in the previous step. We'll use Kubernetes environment variables and secrets to pass the token to the application.
 
 Create the secret:
 ```console
 $ kubectl create secret generic vault --from-literal=token=<vault token>
 ```
 
-And update your application:
+```
+secret/vault created
+```
+
+The `k8s-with-secret.yml` manifest is already configured with the environment variable. Update your application:
 ```console
-$ kubectl apply -f k8s-with-secret.yaml
+$ kubectl apply -f k8s-with-secret.yml
 ```
 
 ## Develop directly in Kubernetes
