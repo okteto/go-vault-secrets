@@ -1,20 +1,30 @@
 # Go and Vault demo application
 
-This example shows how to use [Okteto](https://github.com/okteto/okteto) and [Okteto Cloud](https://cloud.okteto.com) to develop a Go services that consumes secrets from Vault.
+This example shows how to use [Okteto](https://github.com/okteto/okteto) and [Okteto Cloud](https://cloud.okteto.com) to develop a Go services that consumes secrets from [Vault](https://www.vaultproject.io/) directly in Kubernetes.
 
 ## Prerequisites
 - An Okteto Cloud account (sign up for free at https://cloud.okteto.com)
-- [Okteto CLI](https://github.com/okteto/okteto)
+- [Okteto CLI](https://github.com/okteto/okteto) installed locally
+- Basic understanding of Vault
+
+## Configure your Okteto Cloud Credentials
+If you haven't yet, log in to `https://cloud.okteto.com` and click on the `Credentials` button on the left to download your Okteto Cloud credentials, and set them as your current context by running the command below:
+
+```console
+$ export KUBECONFIG=<download-path>/okteto-kube.config
+```
 
 ## Install Vault
 
-1. Clone the official vault chart
-```
+Clone the official vault chart
+
+```console
 $ git clone https://github.com/hashicorp/vault-helm
 ```
 
-1. Generate the installation configuration file
-```
+Generate the installation configuration file
+
+```console
 $ cat <<EOF > config.yaml
 injector:
   enabled: false
@@ -32,25 +42,29 @@ ui:
 EOF
 ```
 
-1. Install Vault
-```
+Install the Vault Helm chart
+
+```console
 $ helm install vault vault-helm -f config.yaml
 ```
 
 ## Configure Vault and Store the Secret
 
-1. Run the vault client
-```
+Run the vault client
+
+```console
 $ kubectl exec -ti vault-0 /bin/sh
 ```
 
 1. Login with the root token
-```
+
+```console
 $ vault login <root token>
 ```
 
 1. Create the policy
-```
+
+```console
 cat <<EOF > /home/vault/app-policy.hcl
 path "secret*" {
   capabilities = ["read"]
@@ -61,28 +75,31 @@ $ vault policy write app /home/vault/app-policy.hcl
 ```
 
 1. Enable the K/V store
-```
+
+```console
 $ vault secrets enable -path=secret kv-v2
 ```
 
 1. Create the token
-```
+
+```console
 $ vault token create -policy=app
 ```
 
 1. Create the secret
-```
+
+```console
 $ vault kv put secret/helloworld username=foobaruser password=foobarbazpass
 ```
 
 ## Deploy the application
-```
+```console
 $ kubectl apply -f k8s.yaml
 ```
 
 The default application uses hard-coded credentials instead of getting them from Vault. Get the URL from the Okteto Cloud UI, and call the application from your local terminal:
 
-```
+```console
 $ curl https://hello-world-cindy.cloud.okteto.net
 ```
 
@@ -98,12 +115,12 @@ In order to call the vault API, you'll need to pass a token to your service.
 We'll use the one we created in the previous step, and pass it via an environment variable.
 
 Create the secret:
-```
+```console
 $ kubectl create secret generic vault --from-literal=token=<vault token>
 ```
 
 And update your application:
-```
+```console
 $ kubectl apply -f k8s-with-secret.yaml
 ```
 
@@ -112,33 +129,49 @@ $ kubectl apply -f k8s-with-secret.yaml
 Now let's go ahead and integrate our code with Vault, directly in the cluster.
 
 Launch your development environment
-```
-okteto up
+
+```console
+$ okteto up
 ```
 
 When you launch a development environment in Okteto, it will inherit all the configurations of the original deployment, like the Vault API token we just added:
-```
+
+```console
 okteto> echo $VAULT_TOKEN
 ```
 
-You'll notice that the code to get the secrets is already there. All you need to do to enable is to open `main.go` in your local IDE and update line `55` to call `getVaultSecrets()` instead.
+You'll notice that the code to get the secrets is already there. All you need to do to enable is to open `main.go` in your local IDE and update the `helloServer` function to call `getVaultSecrets()` instead.
+
+```golang
+func helloServer(w http.ResponseWriter, r *http.Request) {
+	u, p, err := getHardcodedSecrets()
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
+		w.WriteHeader(500)
+	}
+
+	fmt.Fprint(w, "Hello world!\n")
+	fmt.Fprintf(w, "Super secret username: %s\n", u)
+	fmt.Fprintf(w, "Super secret password is: %s\n", p)
+}
+```
 
 Go to your okteto terminal, and start the service:
-```
+```console
 okteto> go run main.go
 ```
 
-```
+```console
 Starting hello-world server..
 ```
 
 Call the application again to see the changes:
 
-```
+```console
 $ curl https://hello-world-cindy.cloud.okteto.net
 ```
 
-```
+```console
 Hello world!
 Super secret username: foobaruser
 Super secret password is: foobarbazpass
