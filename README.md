@@ -35,6 +35,12 @@ server:
   authDelegator:
     enabled: false
 
+dataStorage:
+  size: 1Gi
+
+auditStorage:
+  size: 1Gi
+
 ui:
   enabled: true
   annotations:
